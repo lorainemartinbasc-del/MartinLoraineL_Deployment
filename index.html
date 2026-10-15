@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pinoy Arcade | Simple Filipino Games</title>
+  <meta name="description" content="Three simple Filipino games for your browser: Sipa, Luksong Tinik and Hulaan ang Salita." />
+  <style>
+:root {
+  --bg: #0b1437;
+  --panel: #142057;
+  --ink: #f4f6ff;
+  --muted: #aab3dd;
+  --yellow: #fcd116;
+  --red: #ce1126;
+  --blue: #2f5fe0;
+  --green: #1fae55;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(circle at 50% -10%, #1d2f7a, var(--bg) 60%) fixed;
+  color: var(--ink);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.top { text-align: center; padding: 30px 16px 8px; }
+.top h1 {
+  font-size: clamp(2.2rem, 8vw, 3.4rem);
+  color: var(--yellow);
+  letter-spacing: 1px;
+  text-shadow: 3px 3px 0 var(--red);
+}
+.top p { color: var(--muted); }
+
+.tabs {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 18px 16px 8px;
+}
+
+.tab {
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 2px solid var(--yellow);
+  background: transparent;
+  color: var(--yellow);
+  cursor: pointer;
+}
+.tab:hover { background: rgba(252, 209, 22, 0.12); }
+.tab.active { background: var(--yellow); color: var(--bg); }
+
+main { max-width: 640px; margin: 0 auto; padding: 8px 16px 48px; }
+
+.game { display: none; }
+.game.active { display: block; }
+.game h2 { font-size: 1.6rem; margin: 12px 0 8px; }
+.how { color: var(--muted); margin-bottom: 14px; font-size: 0.95rem; }
+.hud { margin-bottom: 10px; font-size: 1.05rem; }
+.hud b { color: var(--yellow); }
+
+canvas {
+  display: block;
+  width: 100%;
+  margin: 0 auto;
+  border: 4px solid var(--yellow);
+  border-radius: 16px;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  background: #fff;
+}
+#sipaCanvas { max-width: 360px; }
+#luksongCanvas { max-width: 600px; }
+
+.btn {
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 22px;
+  border-radius: 10px;
+  border: 0;
+  background: var(--yellow);
+  color: var(--bg);
+  cursor: pointer;
+}
+.btn:hover { opacity: 0.9; }
+
+/* ---------- Hulaan ang Salita ---------- */
+.hint { color: var(--yellow); font-weight: 600; margin-bottom: 8px; }
+
+.word {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  background: var(--panel);
+  border-radius: 16px;
+  padding: 22px 12px;
+  margin-bottom: 12px;
+}
+.word .ch {
+  width: clamp(24px, 8vw, 40px);
+  height: clamp(34px, 10vw, 50px);
+  border-bottom: 4px solid var(--yellow);
+  font-size: clamp(1.4rem, 6vw, 2.2rem);
+  font-weight: 800;
+  text-align: center;
+  line-height: 1.3;
+}
+.word .ch.missed { color: #ff7b8a; }
+
+.lives { text-align: center; font-size: 1.4rem; letter-spacing: 4px; margin-bottom: 12px; }
+
+.keys {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.keys button {
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 0;
+  border-radius: 8px;
+  border: 2px solid var(--blue);
+  background: var(--blue);
+  color: #fff;
+  cursor: pointer;
+}
+.keys button:hover:not(:disabled) { background: var(--yellow); border-color: var(--yellow); color: var(--bg); }
+.keys button:disabled { cursor: default; opacity: 0.5; }
+.keys button.hit { background: var(--green); border-color: var(--green); opacity: 1; }
+.keys button.miss { background: var(--red); border-color: var(--red); opacity: 0.7; }
+
+.status { min-height: 3em; margin: 10px 0; font-weight: 600; }
+
+.site-footer {
+  text-align: center;
+  padding: 24px 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+</style>
+</head>
+<body>
+  <header class="top">
+    <h1>Pinoy Arcade</h1>
+    <p>Mga larong kalye, ngayon sa screen</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Games">
+    <button class="tab active" role="tab" aria-selected="true" data-target="sipa">Sipa</button>
+    <button class="tab" role="tab" aria-selected="false" data-target="luksong">Luksong Tinik</button>
+    <button class="tab" role="tab" aria-selected="false" data-target="hulaan">Hulaan ang Salita</button>
+  </nav>
+
+  <main>
+    <!-- SIPA -->
+    <section id="sipa" class="game active">
+      <h2>Sipa</h2>
+      <p class="how">
+        Keep the sipa in the air! Tap or click it once it starts falling to kick it back up.
+        Hit its left side to send it right, and its right side to send it left.
+        On a keyboard, press Space when the sipa gets low. If it touches the ground, the game is over.
+      </p>
+      <p class="hud">Score: <b id="sipaScore">0</b> &middot; Best: <b id="sipaBest">0</b></p>
+      <canvas id="sipaCanvas" width="360" height="480" aria-label="Sipa game"></canvas>
+    </section>
+
+    <!-- LUKSONG TINIK -->
+    <section id="luksong" class="game">
+      <h2>Luksong Tinik</h2>
+      <p class="how">
+        Jump over the tinik, the stacked hands. They get taller and faster as you go.
+        Tap, click, or press Space or the Up arrow to jump.
+      </p>
+      <p class="hud">Score: <b id="lukScore">0</b> &middot; Best: <b id="lukBest">0</b></p>
+      <canvas id="luksongCanvas" width="600" height="260" aria-label="Luksong Tinik game"></canvas>
+    </section>
+
+    <!-- HULAAN ANG SALITA -->
+    <section id="hulaan" class="game">
+      <h2>Hulaan ang Salita</h2>
+      <p class="how">
+        Guess the Filipino word one letter at a time. You can miss 6 times. Use the buttons below or your keyboard.
+        When the round ends, you'll see what the word means in English.
+      </p>
+      <p class="hint" id="hHint"></p>
+      <div class="word" id="hWord" aria-live="polite"></div>
+      <p class="lives" id="hLives" aria-label="Lives left"></p>
+      <div class="keys" id="hKeys"></div>
+      <p class="status" id="hStatus" aria-live="polite"></p>
+      <button class="btn" id="hNew">Bagong salita</button>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Made with HTML, CSS &amp; JavaScript. Mabuhay!</p>
+  </footer>
+
+  <script>
+(function () {
+  "use strict";
+
+  /* ---------------- Helpers ---------------- */
+  function $(id) { return document.getElementById(id); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  function readNum(key) {
+    try { return parseInt(localStorage.getItem(key), 10) || 0; } catch (e) { return 0; }
+  }
+  function writeNum(key, v) {
+    try { localStorage.setItem(key, String(v)); } catch (e) {}
+  }
+
+  function isActive(id) { return $(id).classList.contains("active"); }
+
+  // Converts a pointer event into canvas coordinates (the canvas is scaled by CSS)
+  function canvasPoint(canvas, e) {
+    var r = canvas.getBoundingClientRect();
+    var sx = r.width ? canvas.width / r.width : 1;
+    var sy = r.height ? canvas.height / r.height : 1;
+    return { x: (e.clientX - r.left) * sx, y: (e.clientY - r.top) * sy };
+  }
+
+  // Fixed 60 steps per second, so the games feel the same on any screen.
+  // Games pause while their tab is hidden.
+  function startLoop(sectionId, step, draw) {
+    var STEP = 1000 / 60, acc = 0, last = null;
+    function frame(now) {
+      if (last === null) last = now;
+      var dt = Math.min(now - last, 100);
+      last = now;
+      if (isActive(sectionId)) {
+        acc += dt;
+        while (acc >= STEP) { step(); acc -= STEP; }
+        draw();
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function overlay(ctx, W, H, title, sub) {
+    ctx.fillStyle = "rgba(8, 14, 40, 0.62)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#ffffff";
+    ctx.textAlign = "center";
+    ctx.font = "bold 28px system-ui, sans-serif";
+    ctx.fillText(title, W / 2, H / 2 - 8);
+    ctx.font = "16px system-ui, sans-serif";
+    ctx.fillText(sub, W / 2, H / 2 + 22);
+  }
+
+  /* ---------------- Tabs ---------------- */
+  var tabs = document.querySelectorAll(".tab");
+  var games = document.querySelectorAll(".game");
+  tabs.forEach(function (tab) {
+    tab.addEventListener("click", function () {
+      tabs.forEach(function (t) {
+        var on = t === tab;
+        t.classList.toggle("active", on);
+        t.setAttribute("aria-selected", String(on));
+      });
+      games.forEach(function (g) {
+        g.classList.toggle("active", g.id === tab.getAttribute("data-target"));
+      });
+    });
+  });
+
+  /* ---------------- Sipa ---------------- */
+  (function sipa() {
+    var cv = $("sipaCanvas"), ctx = cv.getContext("2d");
+    var W = cv.width, H = cv.height;
+    var GROUND = H - 48, R = 22, G = 0.36, KEY = "pinoy-arcade-sipa-best";
+    var s = { state: "idle", x: W / 2, y: 150, vx: 0, vy: 0, score: 0, best: readNum(KEY), flash: 0, overAt: 0 };
+
+    function hud() {
+      $("sipaScore").textContent = s.score;
+      $("sipaBest").textContent = s.best;
+    }
+
+    function start() {
+      s.state = "playing";
+      s.x = W / 2; s.y = 150; s.vx = 0; s.vy = -6; s.score = 0; s.flash = 0;
+      hud();
+    }
+
+    function kick(px) {
+      var dx = clamp((px - s.x) / (R * 2), -1, 1);
+      s.vy = -(10 + Math.min(s.score * 0.08, 3));
+      s.vx = -dx * 5 + (Math.random() - 0.5) * 1.5;
+      s.score++;
+      s.flash = 12;
+      hud();
+    }
+
+    function over() {
+      s.state = "over";
+      if (s.score > s.best) { s.best = s.score; writeNum(KEY, s.best); }
+      hud();
+    }
+
+    function press(px, py) {
+      // After a game over, wait half a second so a last tap doesn't restart it by accident
+      if (s.state !== "playing") { if (s.state === "idle" || Date.now() - s.overAt > 500) start(); return; }
+      // You can only kick once it is coming back down, and you have to actually hit it
+      if (s.vy > -2 && Math.hypot(px - s.x, py - s.y) <= R * 2.6) kick(px);
+    }
+
+    cv.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      var p = canvasPoint(cv, e);
+      press(p.x, p.y);
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.code !== "Space" || e.repeat || !isActive("sipa")) return;
+      e.preventDefault();
+      if (s.state !== "playing") { if (s.state === "idle" || Date.now() - s.overAt > 500) start(); }
+      else if (s.vy > -2 && s.y > GROUND - 140) kick(s.x);
+    });
+
+    function step() {
+      if (s.flash > 0) s.flash--;
+      if (s.state !== "playing") return;
+      s.vy += G;
+      s.x += s.vx;
+      s.y += s.vy;
+      s.vx *= 0.995;
+      if (s.x < R) { s.x = R; s.vx = Math.abs(s.vx); }
+      if (s.x > W - R) { s.x = W - R; s.vx = -Math.abs(s.vx); }
+      if (s.y < R) { s.y = R; s.vy = Math.abs(s.vy) * 0.5; }
+      if (s.y >= GROUND - R) { s.y = GROUND - R; s.overAt = Date.now(); over(); }
+    }
+
+    function draw() {
+      var sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#74c3ff");
+      sky.addColorStop(1, "#fff1c9");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+
+      // sun
+      ctx.fillStyle = "#fcd116";
+      ctx.beginPath(); ctx.arc(W - 70, 70, 34, 0, Math.PI * 2); ctx.fill();
+
+      // ground
+      ctx.fillStyle = "#4caf50";
+      ctx.fillRect(0, GROUND, W, 12);
+      ctx.fillStyle = "#9b6a3c";
+      ctx.fillRect(0, GROUND + 12, W, H - GROUND - 12);
+
+      // kick ring
+      if (s.flash > 0) {
+        ctx.strokeStyle = "rgba(206, 17, 38, " + (s.flash / 12) + ")";
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(s.x, s.y, R + (12 - s.flash) * 3, 0, Math.PI * 2); ctx.stroke();
+      }
+
+      // the sipa: a washer base with colorful feathers
+      ctx.save();
+      ctx.translate(s.x, s.y);
+      ctx.rotate(clamp(s.vx * 0.08, -0.5, 0.5));
+      var colors = ["#ce1126", "#0038a8", "#fcd116", "#ce1126", "#0038a8"];
+      ctx.lineWidth = 5;
+      ctx.lineCap = "round";
+      for (var i = -2; i <= 2; i++) {
+        ctx.strokeStyle = colors[i + 2];
+        ctx.beginPath();
+        ctx.moveTo(i * 2, 4);
+        ctx.lineTo(i * 9, -22);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#d4a017";
+      ctx.beginPath(); ctx.arc(0, 10, 11, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#8a6a0c";
+      ctx.beginPath(); ctx.arc(0, 10, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      if (s.state === "idle") overlay(ctx, W, H, "Sipa", "Tap to start");
+      else if (s.state === "over") overlay(ctx, W, H, "Laro tapos! Score: " + s.score, "Tap to play again");
+    }
+
+    hud();
+    startLoop("sipa", step, draw);
+  })();
+
+  /* ---------------- Luksong Tinik ---------------- */
+  (function luksong() {
+    var cv = $("luksongCanvas"), ctx = cv.getContext("2d");
+    var W = cv.width, H = cv.height;
+    var GROUND = H - 50, G = 0.65, JUMP = 12.5, PX = 90, KEY = "pinoy-arcade-luksong-best";
+    var s = {
+      state: "idle", y: 0, vy: 0, obs: [], speed: 5, score: 0,
+      best: readNum(KEY), dist: 0, sinceSpawn: 0, nextGap: 450, overAt: 0
+    };
+
+    function hud() {
+      $("lukScore").textContent = s.score;
+      $("lukBest").textContent = s.best;
+    }
+
+    function start() {
+      s.state = "playing";
+      s.y = 0; s.vy = 0; s.obs = []; s.speed = 5; s.score = 0; s.dist = 0;
+      s.sinceSpawn = 300; s.nextGap = 450;
+      hud();
+    }
+
+    function over() {
+      s.state = "over";
+      if (s.score > s.best) { s.best = s.score; writeNum(KEY, s.best); }
+      hud();
+    }
+
+    function jump() {
+      if (s.state !== "playing") { if (s.state === "idle" || Date.now() - s.overAt > 500) start(); return; }
+      if (s.y === 0 && s.vy === 0) s.vy = JUMP;
+    }
+
+    function spawn() {
+      var h = 34 + Math.min(s.score, 18) * 3 + Math.random() * 8;
+      s.obs.push({ x: W + 10, w: 26, h: h, passed: false });
+      s.sinceSpawn = 0;
+      s.nextGap = 320 + s.speed * 16 + Math.random() * 120;
+    }
+
+    cv.addEventListener("pointerdown", function (e) { e.preventDefault(); jump(); });
+
+    document.addEventListener("keydown", function (e) {
+      if ((e.code !== "Space" && e.code !== "ArrowUp") || e.repeat || !isActive("luksong")) return;
+      e.preventDefault();
+      jump();
+    });
+
+    function step() {
+      if (s.state !== "playing") return;
+      s.dist += s.speed;
+
+      if (s.y > 0 || s.vy > 0) {
+        s.y += s.vy;
+        s.vy -= G;
+        if (s.y <= 0) { s.y = 0; s.vy = 0; }
+      }
+
+      s.sinceSpawn += s.speed;
+      if (s.sinceSpawn >= s.nextGap) spawn();
+
+      for (var i = 0; i < s.obs.length; i++) {
+        var o = s.obs[i];
+        o.x -= s.speed;
+
+        if (!o.passed && o.x + o.w < PX - 10) {
+          o.passed = true;
+          s.score++;
+          s.speed = Math.min(s.speed + 0.2, 9);
+          hud();
+        }
+
+        if (PX + 10 > o.x && PX - 10 < o.x + o.w && s.y + 3 < o.h) {
+          s.overAt = Date.now();
+          over();
+          return;
+        }
+      }
+      s.obs = s.obs.filter(function (o) { return o.x + o.w > -10; });
+    }
+
+    function drawMayon() {
+      // A simple cone, a nod to Mayon Volcano
+      ctx.fillStyle = "#7a6a8f";
+      ctx.beginPath();
+      ctx.moveTo(W - 300, GROUND);
+      ctx.quadraticCurveTo(W - 190, GROUND - 20, W - 150, GROUND - 130);
+      ctx.lineTo(W - 138, GROUND - 130);
+      ctx.quadraticCurveTo(W - 100, GROUND - 20, W + 10, GROUND);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawPlayer() {
+      var base = GROUND - s.y;
+      var air = s.y > 0;
+      var phase = Math.floor(s.dist / 12) % 2;
+
+      ctx.strokeStyle = "#1b1f3b";
+      ctx.lineWidth = 4;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      if (air) {
+        ctx.moveTo(PX - 3, base - 18); ctx.lineTo(PX - 11, base - 8);
+        ctx.moveTo(PX + 3, base - 18); ctx.lineTo(PX + 11, base - 11);
+      } else if (phase) {
+        ctx.moveTo(PX - 3, base - 18); ctx.lineTo(PX - 9, base);
+        ctx.moveTo(PX + 3, base - 18); ctx.lineTo(PX + 8, base - 5);
+      } else {
+        ctx.moveTo(PX - 3, base - 18); ctx.lineTo(PX - 8, base - 5);
+        ctx.moveTo(PX + 3, base - 18); ctx.lineTo(PX + 9, base);
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = "#ce1126";
+      ctx.fillRect(PX - 8, base - 38, 16, 22);
+
+      ctx.fillStyle = "#f1c27d";
+      ctx.beginPath(); ctx.arc(PX, base - 46, 8, 0, Math.PI * 2); ctx.fill();
+
+      // salakot (traditional hat)
+      ctx.fillStyle = "#e8c15a";
+      ctx.beginPath();
+      ctx.moveTo(PX - 17, base - 48);
+      ctx.lineTo(PX, base - 65);
+      ctx.lineTo(PX + 17, base - 48);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawTinik(o) {
+      ctx.fillStyle = "#d9a066";
+      ctx.strokeStyle = "#8a5a2b";
+      ctx.lineWidth = 1;
+      for (var k = 0; k < o.h; k += 14) {
+        var segH = Math.min(14, o.h - k);
+        var off = (k / 14) % 2 ? 2 : 0;
+        ctx.fillRect(o.x + off, GROUND - k - segH, o.w - 2, segH - 1);
+        ctx.strokeRect(o.x + off, GROUND - k - segH, o.w - 2, segH - 1);
+      }
+    }
+
+    function draw() {
+      var sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, "#ff9a5a");
+      sky.addColorStop(1, "#ffe9a8");
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+
+      drawMayon();
+
+      ctx.fillStyle = "#4caf50";
+      ctx.fillRect(0, GROUND, W, 10);
+      ctx.fillStyle = "#9b6a3c";
+      ctx.fillRect(0, GROUND + 10, W, H - GROUND - 10);
+      ctx.fillStyle = "#7d5230";
+      for (var x = -(s.dist % 40); x < W; x += 40) ctx.fillRect(x, GROUND + 24, 18, 3);
+
+      s.obs.forEach(drawTinik);
+      drawPlayer();
+
+      if (s.state === "idle") overlay(ctx, W, H, "Luksong Tinik", "Tap to start, tap again to jump");
+      else if (s.state === "over") overlay(ctx, W, H, "Talo! Score: " + s.score, "Tap to try again");
+    }
+
+    hud();
+    startLoop("luksong", step, draw);
+  })();
+
+  /* ---------------- Hulaan ang Salita ---------------- */
+  (function hulaan() {
+    var WORDS = [
+      { w: "BAYANIHAN", en: "community spirit, helping one another", hint: "A Filipino value" },
+      { w: "KALABAW", en: "carabao, the water buffalo", hint: "A farm animal" },
+      { w: "SAMPAGUITA", en: "Philippine jasmine, the national flower", hint: "A fragrant flower" },
+      { w: "PANDESAL", en: "soft bread rolls eaten at breakfast", hint: "Breakfast food" },
+      { w: "KAIBIGAN", en: "friend", hint: "Someone you trust" },
+      { w: "SALAMAT", en: "thank you", hint: "A polite word" },
+      { w: "MABUHAY", en: "long live, welcome", hint: "A famous greeting" },
+      { w: "KAPITBAHAY", en: "neighbor", hint: "Lives next door" },
+      { w: "PAMILYA", en: "family", hint: "Home and loved ones" },
+      { w: "PAARALAN", en: "school", hint: "A place to learn" },
+      { w: "KABAYO", en: "horse", hint: "An animal you can ride" },
+      { w: "BULAKLAK", en: "flower", hint: "Found in a garden" },
+      { w: "PINAKBET", en: "an Ilocano vegetable dish", hint: "A dish with vegetables" },
+      { w: "SINIGANG", en: "sour soup", hint: "A tangy soup" },
+      { w: "ADOBO", en: "meat stewed in vinegar and soy sauce", hint: "A famous dish" },
+      { w: "LECHON", en: "roast pig", hint: "A fiesta favorite" },
+      { w: "TINAPAY", en: "bread", hint: "Baked food" },
+      { w: "PANGARAP", en: "dream", hint: "A hope for the future" },
+      { w: "KUSINA", en: "kitchen", hint: "A room in the house" },
+      { w: "BUNDOK", en: "mountain", hint: "Tall and rocky" },
+      { w: "KARAGATAN", en: "ocean", hint: "Very big and salty" },
+      { w: "TAGUMPAY", en: "victory, success", hint: "What winners get" }
+    ];
+    var MAX_WRONG = 6;
+    var LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
+    var wordEl = $("hWord"), keysEl = $("hKeys"), livesEl = $("hLives");
+    var statusEl = $("hStatus"), hintEl = $("hHint");
+    var keyEls = {};
+    var h = { entry: null, guessed: {}, wrong: 0, status: "playing", lastIndex: -1 };
+
+    LETTERS.forEach(function (L) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.textContent = L;
+      b.addEventListener("click", function () { guess(L); });
+      keysEl.appendChild(b);
+      keyEls[L] = b;
+    });
+
+    function newWord() {
+      var i;
+      do { i = Math.floor(Math.random() * WORDS.length); } while (i === h.lastIndex && WORDS.length > 1);
+      h.lastIndex = i;
+      h.entry = WORDS[i];
+      h.guessed = {};
+      h.wrong = 0;
+      h.status = "playing";
+      render();
+    }
+
+    function allFound() {
+      return h.entry.w.split("").every(function (c) { return h.guessed[c]; });
+    }
+
+    function guess(L) {
+      if (h.status !== "playing" || h.guessed[L]) return;
+      h.guessed[L] = true;
+      if (h.entry.w.indexOf(L) === -1) h.wrong++;
+      if (allFound()) h.status = "won";
+      else if (h.wrong >= MAX_WRONG) h.status = "lost";
+      render();
+    }
+
+    function render() {
+      var w = h.entry.w;
+      hintEl.textContent = "Hint: " + h.entry.hint + " (" + w.length + " letters)";
+
+      wordEl.innerHTML = "";
+      w.split("").forEach(function (c) {
+        var span = document.createElement("span");
+        span.className = "ch";
+        if (h.guessed[c]) span.textContent = c;
+        else if (h.status === "lost") { span.textContent = c; span.classList.add("missed"); }
+        wordEl.appendChild(span);
+      });
+
+      var left = MAX_WRONG - h.wrong;
+      livesEl.textContent = new Array(left + 1).join("❤️") + new Array(h.wrong + 1).join("🖤");
+
+      LETTERS.forEach(function (L) {
+        var b = keyEls[L];
+        var used = !!h.guessed[L];
+        b.disabled = used || h.status !== "playing";
+        b.classList.toggle("hit", used && w.indexOf(L) !== -1);
+        b.classList.toggle("miss", used && w.indexOf(L) === -1);
+      });
+
+      if (h.status === "won") statusEl.textContent = "Tama! " + w + " means " + h.entry.en + ".";
+      else if (h.status === "lost") statusEl.textContent = "Naubusan ka ng buhay! The word was " + w + ", which means " + h.entry.en + ".";
+      else statusEl.textContent = "";
+    }
+
+    document.addEventListener("keydown", function (e) {
+      if (!isActive("hulaan") || e.ctrlKey || e.metaKey || e.altKey) return;
+      var k = (e.key || "").toUpperCase();
+      if (k.length === 1 && k >= "A" && k <= "Z") guess(k);
+    });
+
+    $("hNew").addEventListener("click", newWord);
+    newWord();
+  })();
+})();
+
+</script>
+</body>
+</html>
